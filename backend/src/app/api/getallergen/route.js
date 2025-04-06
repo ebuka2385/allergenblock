@@ -6,11 +6,11 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 //also takes in restaurantName, latitude and longitude to store in database.
 export async function POST(request){
     try{
-        const {image, restaurantName, latitude, longitude} = await request.json();
+        const {image, restaurantName, latitude, longitude, source } = await request.json();
 
-        if(!image || !restaurantName || latitude == undefined || longitude==undefined){
+        if(!image || !restaurantName || latitude == undefined || longitude==undefined || !source){
             return NextResponse.json(
-                {error: "Missing required fields (image, restaurantName, latitude, longitude)"},
+                {error: "Missing required fields (image, restaurantName, latitude, longitude, source)"},
                 {status: 400}
             )
         }
@@ -19,10 +19,12 @@ export async function POST(request){
         const result = await processImage(base64Image);
 
         return NextResponse.json({
-            message: "success",
+            success: true,
+            message: 'Menu captured successfully',
             restaurantName: restaurantName,
             location: {latitude,longitude},
-            menu: result
+            menu: result,
+            source: source
         })
 
     }
