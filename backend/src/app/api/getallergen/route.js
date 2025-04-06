@@ -3,23 +3,26 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 
 
 //Extract base64 format from image and process it with Gemini
+//also takes in restaurantName, latitude and longitude to store in database.
 export async function POST(request){
     try{
-        const image = await request.json();
+        const {image, restaurantName, latitude, longitude} = await request.json();
 
-        if(!image.image){
+        if(!image || !restaurantName || latitude == undefined || longitude==undefined){
             return NextResponse.json(
-                {error: "No image provided"},
+                {error: "Missing required fields (image, restaurantName, latitude, longitude)"},
                 {status: 400}
             )
         }
-        const base64Image = await image.image.split(",")[1];
 
+        const base64Image = await image.split(",")[1];
         const result = await processImage(base64Image);
 
         return NextResponse.json({
             message: "success",
-            body: result
+            restaurantName: restaurantName,
+            location: {latitude,longitude},
+            menu: result
         })
 
     }
