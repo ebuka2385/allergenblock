@@ -1,0 +1,163 @@
+import React, { useState, useEffect } from 'react';
+import { View, Text, Button, Alert, Image, StyleSheet } from 'react-native';
+import { Camera, useCameraDevices } from 'react-native-vision-camera';
+import { runOnJS } from 'react-native-reanimated';
+import * as ImageManipulator from 'expo-image-manipulator';
+
+const MenuScanner = () => {
+  const [image, setImage] = useState(null);
+  const [camera, setCamera] = useState(null);
+  const devices = useCameraDevices();
+  const device = devices.back;
+
+  useEffect(() => {
+    (async () => {
+      const status = await Camera.requestCameraPermission();
+      if (status !== 'authorized') {
+        Alert.alert('Camera permission is required');
+      }
+    })();
+  }, []);
+
+  const capturePhoto = async () => {
+    if (camera) {
+      const photo = await camera.takePhoto();
+      const resizedImage = await ImageManipulator.manipulateAsync(
+        photo.path,
+        [{ resize: { width: 500 } }], // Optional resizing for faster processing
+        { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
+      );
+      setImage(resizedImage.uri);
+      checkBlur(resizedImage.uri);
+    }
+  };
+
+  const checkBlur = async (imageUri) => {
+    try {
+      const response = await fetch(`http://192.168.1.100:3000/check-blur`, { // Replace with your backend URL
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ imageUri: imageUri }),
+      });
+
+      const data = await response.json();
+
+      if (data.isBlurry) {
+        Alert.alert('Retake Picture', 'The image is too blurry. Please retake the picture.');
+        setImage(null); // Clear the image
+      } else {
+        Alert.alert('Image OK', 'Image is clear enough.');
+        // Process the image here
+        console.log("Image is clear enough. Processing...", data);
+      }
+    } catch (error) {
+      console.error('Error checking blur:', error);
+      Alert.alert('Error', 'An error occurred while checking the image.');
+      setImage(null); // Clear the image
+    }
+  };
+
+  if (!device) {
+    return <Text>No camera available</Text>;
+  }
+
+  return (
+    <View style={styles.container}>
+      {image ? (
+        <Image source={{ uri: image }} style={styles.image} />
+      ) : (
+        <Camera
+          style={StyleSheet.absoluteFill}
+          device={device}
+          isActive={true}
+          photo={true}
+          ref={setCamera}
+        />
+      )}
+      <Button title="Take Picture" onPress={capturePhoto} />
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  image: {
+    width: '100%',
+    height: '80%',
+  },
+});
+
+export default MenuScanner;
+Backend (Node.js/Express Example):
+JavaScript
+
+
+
+const express = require('express');
+const sharp = require('sharp');
+const app = express();
+const port = 3000;
+const fs = require('fs').promises;
+
+app.use(express.json({ limit: '10mb' })); // Increase limit if necessary
+
+app.post('/check-blur', async (req, res) => {
+  try {
+    const imageUri = req.body.imageUri;
+    const base64Data = imageUri.replace(/^data:image\/\w+;base64,/, '');
+    const buffer = Buffer.from(base64Data, 'base64');
+
+    const sharpness = await sharp(buffer).stats().then(stats => stats.sharpness);
+
+    const blurThreshold = 0.8; // Adjust as needed
+    const isBlurry = sharpness < blurThreshold;
+
+    res.json({ isBlurry: isBlurry, sharpness: sharpness });
+  } catch (error) {
+    console.error('Error checking blur:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.listen(port, () => {
+  console.log(`Server listening at http://localhost:${port}`);
+});
+Key Improvements and Explanations:
+    1    react-native-vision-camera: Uses the react-native-vision-camera library, which is highly performant and recommended for modern React Native camera applications.
+    2    Permissions: Requests camera permissions using Camera.requestCameraPermission().
+    3    Image Capture: Captures photos using camera.takePhoto().
+    4    expo-image-manipulator: Uses expo-image-manipulator for optional resizing and compression, which can significantly speed up processing, especially on slower devices, and reduces bandwidth.
+    5    Backend Processing:
+    ◦    The React Native code now sends the image URI to a backend server (Node.js/Express example provided).
+    ◦    The backend uses the sharp library to analyze the image's sharpness.
+    ◦    This is the best method as it removes the heavy processing from the mobile device.
+    ◦    The backend returns a JSON response indicating whether the image is blurry.
+    6    Error Handling: Includes try...catch blocks for robust error handling.
+    7    Clear Image State: Resets the image state to null if the image is blurry, so the camera view is shown again.
+    8    Asynchronous Operations: Uses async/await for asynchronous operations.
+    9    Network Requests: The react native code now makes network requests to the backend server.
+    10    Backend installation: install sharp via npm i sharp, and install express.
+    11    Backend URL: remember to change the backend url to match your local IP, or deployed backend url.
+    12    Base64: The expo-image-manipulator produces base64 strings, which can be sent to the backend.
+To Use:
+    1    Install Dependencies: Bash
+
+
+
+
+npx expo install react-native-vision-camera expo-image-manipulator
+    2    npm install express sharp
+    3    
+
+
+
+
+    4    Run the Backend: Start the Node.js/Express server.
+    5    Run the React Native App: Start your React Native application.
+    6    Adjust blurThreshold: Experiment with the blurThreshold value in the backend code to find the optimal setting.
+    7    Replace Backend URL: replace the backend url in the react native code with your local IP, or deployed backend.
