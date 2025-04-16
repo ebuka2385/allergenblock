@@ -54,17 +54,35 @@ async function processImage(base64Image) {
                 role: "user",
                 parts: [
                     {
-                        text: `Analyze the attached image of a restaurant menu.  
-                            Return a JSON array of food items, where each item has two fields: 
-                            "name": the name of the menu item
-                            "allergens": an array of allergens found in the item
-                            Format each item like this:
-                            {
-                                "name": "Grilled Chicken",
-                                "allergens": ["gluten", "dairy"]
-                            }
-                            If ingredients are not listed, infer general knowledge for allergens, If still no allergens found return empty array.
-                            There should be no markdowns and it should be plain text`,
+                        text: `You are analyzing an image of a restaurant menu.
+                                Your job is to extract each **menu item** as an object with two fields:
+                                1. "name": the name of the menu item
+                                2. "allergens": an array of allergens (like gluten, egg, soy, etc.)
+
+                                Output must be a **valid JSON array** like:
+                                [
+                                    {
+                                        "name": "Whopper",
+                                        "allergens": ["gluten", "soy", "egg"],
+                                        "certainty": 0.95
+                                    },
+                                    {
+                                        "name": "French Fries",
+                                        "allergens": [],
+                                        "certainty": 0.7
+                                    }
+                                ]
+
+                                Rules:
+                                - If ingredients are visible, extract allergens from them and assign a high certainty
+                                - If ingredients are not visible, use YOUR food knowledge of fast food items (like those from Burger King, McDonald's, Chick-fil-A) 
+                                to infer allergens and assign a moderate certainty. Assign high certainty if very sure it includes those allergens.
+                                - If you make an educated guess or are unsure, assign a lower certainty
+                                - If you still can't infer allergens, return an empty array []
+                                - Accuracy is critical for allergic individuals. Be as precise as possible.
+                                - If there are any typos of general food items from the common restaurants then you can use your general knowledge to correct it,
+                                (eg. use "Hamburger" for burger king if theres a processing error of "Hashburger" or "Hanburger")
+                                - No markdown, no extra text — just raw JSON`,
                     }, 
                     {
                         inline_data: {
